@@ -6,6 +6,7 @@ import {
   type TransactionType,
 } from "@/app/actions/transactions";
 import { Modal } from "@/components/ui/Modal";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 type Cat = { id: string; name: string };
 type Goal = {
@@ -168,13 +169,11 @@ export function AddTransactionModal({
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
           <label className="form-label">Amount (₱)</label>
-          <input
+          <MoneyInput
             className="form-input w-full"
-            type="text"
-            inputMode="decimal"
             placeholder="0.00"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={setAmount}
           />
         </div>
         <div>

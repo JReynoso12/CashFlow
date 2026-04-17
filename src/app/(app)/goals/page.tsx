@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatPhp, parsePhpToCents } from "@/lib/money";
+import { formatAmountInput, formatPhp, parsePhpToCents } from "@/lib/money";
 import {
   contributeToGoal,
   createGoal,
@@ -11,6 +11,7 @@ import {
   type GoalCadence,
 } from "@/app/actions/goals";
 import { Modal } from "@/components/ui/Modal";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 type GoalRow = {
   id: string;
@@ -119,12 +120,12 @@ export default function GoalsPage() {
     setForm({
       id: g.id,
       name: g.name,
-      target: (g.target_cents / 100).toString(),
-      current: (g.current_cents / 100).toString(),
+      target: formatAmountInput((g.target_cents / 100).toString()),
+      current: formatAmountInput((g.current_cents / 100).toString()),
       cadence: g.cadence,
       contribution:
         g.contribution_cents > 0
-          ? (g.contribution_cents / 100).toString()
+          ? formatAmountInput((g.contribution_cents / 100).toString())
           : "",
     });
     setErr(null);
@@ -456,24 +457,20 @@ export default function GoalsPage() {
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>
             <label className="form-label">Target (₱)</label>
-            <input
+            <MoneyInput
               className="form-input w-full"
-              type="text"
-              inputMode="decimal"
               placeholder="0.00"
               value={form.target}
-              onChange={(e) => setForm({ ...form, target: e.target.value })}
+              onChange={(v) => setForm({ ...form, target: v })}
             />
           </div>
           <div>
             <label className="form-label">Saved so far (₱)</label>
-            <input
+            <MoneyInput
               className="form-input w-full"
-              type="text"
-              inputMode="decimal"
               placeholder="0.00"
               value={form.current}
-              onChange={(e) => setForm({ ...form, current: e.target.value })}
+              onChange={(v) => setForm({ ...form, current: v })}
             />
           </div>
         </div>
@@ -483,15 +480,11 @@ export default function GoalsPage() {
             <label className="form-label">
               Contribution per {form.cadence === "monthly" ? "month" : "year"} (₱)
             </label>
-            <input
+            <MoneyInput
               className="form-input w-full"
-              type="text"
-              inputMode="decimal"
               placeholder="0.00"
               value={form.contribution}
-              onChange={(e) =>
-                setForm({ ...form, contribution: e.target.value })
-              }
+              onChange={(v) => setForm({ ...form, contribution: v })}
             />
             <p className="mt-1.5 text-[11px] text-[color:var(--muted)]">
               Tap &quot;+ contribution&quot; on the goal card to add this to

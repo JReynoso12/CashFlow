@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatPhp, parsePhpToCents } from "@/lib/money";
+import { formatAmountInput, formatPhp, parsePhpToCents } from "@/lib/money";
 import {
   addDefaultCategories,
   createCategory,
@@ -10,6 +10,7 @@ import {
   updateCategory,
 } from "@/app/actions/categories";
 import { Modal } from "@/components/ui/Modal";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 type CategoryRow = {
   id: string;
@@ -98,7 +99,7 @@ export default function BudgetsPage() {
       color: c.color,
       amount:
         c.monthly_budget_cents > 0
-          ? (c.monthly_budget_cents / 100).toString()
+          ? formatAmountInput((c.monthly_budget_cents / 100).toString())
           : "",
     });
     setErr(null);
@@ -283,13 +284,11 @@ export default function BudgetsPage() {
             </div>
             <div className="mt-4">
               <label className="form-label">Monthly budget (₱)</label>
-              <input
+              <MoneyInput
                 className="form-input w-full"
-                type="text"
-                inputMode="decimal"
                 placeholder="0.00"
                 value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                onChange={(v) => setForm({ ...form, amount: v })}
               />
             </div>
             <div className="mt-4">
