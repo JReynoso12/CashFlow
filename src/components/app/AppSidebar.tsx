@@ -305,7 +305,7 @@ export function MobileTopBar({
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[color:var(--border)] bg-[color:var(--surface)]/90 px-4 py-3 backdrop-blur md:hidden">
+      <header className="safe-top sticky top-0 z-30 flex items-center justify-between border-b border-[color:var(--border)] bg-[color:var(--surface)]/90 px-4 py-3 backdrop-blur md:hidden">
         <Link href="/" className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white p-0.5 shadow-sm">
             <Image
@@ -352,7 +352,7 @@ export function MobileTopBar({
             role="dialog"
             aria-label="Navigation"
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-0 flex h-full w-[260px] flex-col gap-6 overflow-y-auto border-l border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-6"
+            className="safe-y safe-right absolute right-0 top-0 flex h-full w-[260px] flex-col gap-6 overflow-y-auto border-l border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-6"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -445,7 +445,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const short = nav.slice(0, 4);
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 md:hidden">
+    <nav className="safe-bottom fixed bottom-0 left-0 right-0 z-40 flex border-t border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 md:hidden">
       {short.map((item) => {
         const active = pathname === item.href;
         const Icon = item.icon;

@@ -33,6 +33,27 @@ html {
   touch-action: manipulation;
 }
 
+.safe-top {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+.safe-y {
+  padding-top: max(env(safe-area-inset-top), 0px);
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+.safe-right {
+  padding-right: max(env(safe-area-inset-right), 0px);
+}
+
+.safe-left {
+  padding-left: max(env(safe-area-inset-left), 0px);
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -50,18 +71,32 @@ body {
 }
 
 .main-content {
-  padding: 1.5rem 1rem 5rem;
+  padding-top: 1.5rem;
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
 }
 
 @media (min-width: 640px) {
   .main-content {
-    padding: 2rem 1.75rem 4rem;
+    padding-top: 2rem;
+    padding-right: max(1.75rem, env(safe-area-inset-right));
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+    padding-left: max(1.75rem, env(safe-area-inset-left));
+  }
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    padding-bottom: 3.75rem;
   }
 }
 
 @media (min-width: 1024px) {
   .main-content {
-    padding: 2.5rem 2.5rem 3.75rem;
+    padding-top: 2.5rem;
+    padding-right: 2.5rem;
+    padding-left: 2.5rem;
   }
 }
 
@@ -303,8 +338,8 @@ body {
 
 .fab {
   position: fixed;
-  bottom: 5.5rem;
-  right: 1.75rem;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  right: calc(1.75rem + env(safe-area-inset-right));
   background: var(--accent);
   color: #0c1510;
   border: none;
@@ -325,6 +360,7 @@ body {
 @media (min-width: 768px) {
   .fab {
     bottom: 2rem;
+    right: 2rem;
   }
 }
 
