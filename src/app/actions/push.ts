@@ -50,6 +50,14 @@ export async function sendTestPush() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (!session?.access_token) {
+    throw new Error("Session expired. Please sign in again.");
+  }
 
   const { data: subs, error } = await supabase
     .from("push_subscriptions")
@@ -66,7 +74,8 @@ export async function sendTestPush() {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      Authorization: `Bearer ${anon}`,
+      apikey: anon,
+      Authorization: `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({
       userId: user.id,
