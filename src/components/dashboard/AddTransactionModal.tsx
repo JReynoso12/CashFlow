@@ -1,28 +1,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addTransaction } from "@/app/actions/transactions";
+import {
+  addTransaction,
+  type TransactionType,
+} from "@/app/actions/transactions";
 import { Modal } from "@/components/ui/Modal";
 
 type Cat = { id: string; name: string };
+type Goal = {
+  id: string;
+  name: string;
+  cadence: "one_time" | "monthly" | "yearly";
+};
 
 type Props = {
   open: boolean;
   onClose: () => void;
   categories: Cat[];
+  goals: Goal[];
   onSaved: () => void;
 };
+
+const TYPE_OPTIONS: { id: TransactionType; label: string }[] = [
+  { id: "expense", label: "Expense" },
+  { id: "income", label: "Income" },
+  { id: "savings", label: "Savings" },
+];
+
+function cadenceShort(c: Goal["cadence"]) {
+  if (c === "monthly") return "mo";
+  if (c === "yearly") return "yr";
+  return "one-time";
+}
 
 export function AddTransactionModal({
   open,
   onClose,
   categories,
+  goals,
   onSaved,
 }: Props) {
-  const [type, setType] = useState<"expense" | "income">("expense");
+  const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
   const [catId, setCatId] = useState<string>("");
+  const [goalId, setGoalId] = useState<string>("");
   const [date, setDate] = useState("");
   const [pending, setPending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -35,6 +58,7 @@ export function AddTransactionModal({
   }, [open]);
 
   useEffect(() => {
+    if (type === "savings") return;
     if (categories.length && !catId) {
       const first = categories.find((c) =>
         type === "income" ? c.name === "Income" : c.name !== "Income",
@@ -42,6 +66,12 @@ export function AddTransactionModal({
       setCatId(first?.id ?? categories[0].id);
     }
   }, [categories, catId, type, open]);
+
+  useEffect(() => {
+    if (type === "savings" && goals.length && !goalId) {
+      setGoalId(goals[0].id);
+    }
+  }, [type, goals, goalId]);
 
   async function submit() {
     setErr(null);
@@ -51,6 +81,10 @@ export function AddTransactionModal({
       setErr("Please enter description and a valid amount.");
       return;
     }
+    if (type === "savings" && !goalId) {
+      setErr("Pick a savings goal.");
+      return;
+    }
     const cents = Math.round(n * 100);
     setPending(true);
     try {
@@ -58,7 +92,8 @@ export function AddTransactionModal({
         type,
         amountCents: cents,
         description: desc.trim(),
-        categoryId: catId || null,
+        categoryId: type === "savings" ? null : catId || null,
+        goalId: type === "savings" ? goalId || null : null,
         occurredAt: date,
       });
       setDesc("");
@@ -72,99 +107,168 @@ export function AddTransactionModal({
     }
   }
 
+  const primaryLabel =
+    type === "savings"
+      ? "Add savings"
+      : type === "income"
+        ? "Add income"
+        : "Add expense";
+
   return (
     <Modal
       open={open}
       onClose={onClose}
       labelledBy="add-tx-title"
-      panelClassName="max-w-[400px]"
+      panelClassName="max-w-[420px]"
     >
       <h2 id="add-tx-title" className="font-serif text-xl">
         Add Transaction
       </h2>
-        {err && (
-          <p className="mt-2 text-sm text-[color:var(--red)]">{err}</p>
-        )}
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <div>
-            <label className="form-label">Type</label>
-            <select
-              className="form-input w-full"
-              value={type}
-              onChange={(e) => {
-                setType(e.target.value as "expense" | "income");
-                setCatId("");
-              }}
-            >
-              <option value="expense">Expense</option>
-              <option value="income">Income</option>
-            </select>
-          </div>
-          <div>
-            <label className="form-label">Amount</label>
-            <input
-              className="form-input w-full"
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
+      {err && <p className="mt-2 text-sm text-[color:var(--red)]">{err}</p>}
+
+      <div className="mt-6">
+        <label className="form-label">Type</label>
+        <div className="grid grid-cols-3 gap-2">
+          {TYPE_OPTIONS.map((opt) => {
+            const active = type === opt.id;
+            const accent =
+              opt.id === "income"
+                ? "var(--accent)"
+                : opt.id === "savings"
+                  ? "var(--blue)"
+                  : "var(--red)";
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setType(opt.id)}
+                className={[
+                  "rounded-lg border px-2 py-2 text-[12.5px] font-medium transition-colors",
+                  active
+                    ? "text-[color:var(--text)]"
+                    : "border-[color:var(--border2)] bg-[color:var(--surface2)] text-[color:var(--muted2)] hover:text-[color:var(--text)]",
+                ].join(" ")}
+                style={
+                  active
+                    ? {
+                        borderColor: accent,
+                        background: `color-mix(in oklab, ${accent} 14%, transparent)`,
+                        color: accent,
+                      }
+                    : undefined
+                }
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
-        <div className="mt-4">
-          <label className="form-label">Description</label>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div>
+          <label className="form-label">Amount (₱)</label>
           <input
             className="form-input w-full"
             type="text"
-            placeholder="e.g. Coffee, Rent..."
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
+            inputMode="decimal"
+            placeholder="0.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
           />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div>
-            <label className="form-label">Category</label>
-            {categories.length === 0 ? (
-              <div className="form-input w-full text-[12px] text-[color:var(--muted)]">
-                None yet —{" "}
-                <a
-                  href="/budgets"
-                  className="text-[color:var(--accent)] hover:underline"
-                >
-                  add one
-                </a>
-              </div>
-            ) : (
-              <select
-                className="form-input w-full"
-                value={catId}
-                onChange={(e) => setCatId(e.target.value)}
-              >
-                {categories
-                  .filter((c) =>
-                    type === "income"
-                      ? c.name === "Income"
-                      : c.name !== "Income",
-                  )
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </select>
-            )}
-          </div>
-          <div>
-            <label className="form-label">Date</label>
-            <input
-              className="form-input w-full"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
+        <div>
+          <label className="form-label">Date</label>
+          <input
+            className="form-input w-full"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
         </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="form-label">Description</label>
+        <input
+          className="form-input w-full"
+          type="text"
+          placeholder={
+            type === "savings"
+              ? "e.g. Payday transfer to savings"
+              : "e.g. Coffee, Rent..."
+          }
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+        />
+      </div>
+
+      {type === "savings" ? (
+        <div className="mt-4">
+          <label className="form-label">Savings goal</label>
+          {goals.length === 0 ? (
+            <div className="form-input w-full text-[12px] text-[color:var(--muted)]">
+              No goals yet —{" "}
+              <a
+                href="/goals"
+                className="text-[color:var(--accent)] hover:underline"
+              >
+                create one
+              </a>
+            </div>
+          ) : (
+            <select
+              className="form-input w-full"
+              value={goalId}
+              onChange={(e) => setGoalId(e.target.value)}
+            >
+              {goals.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} · {cadenceShort(g.cadence)}
+                </option>
+              ))}
+            </select>
+          )}
+          <p className="mt-1.5 text-[11px] text-[color:var(--muted)]">
+            The amount will be added to this goal&apos;s progress, regardless of
+            whether it&apos;s monthly, yearly, or one-time.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4">
+          <label className="form-label">Category</label>
+          {categories.length === 0 ? (
+            <div className="form-input w-full text-[12px] text-[color:var(--muted)]">
+              None yet —{" "}
+              <a
+                href="/budgets"
+                className="text-[color:var(--accent)] hover:underline"
+              >
+                add one
+              </a>
+            </div>
+          ) : (
+            <select
+              className="form-input w-full"
+              value={catId}
+              onChange={(e) => setCatId(e.target.value)}
+            >
+              {categories
+                .filter((c) =>
+                  type === "income"
+                    ? c.name === "Income"
+                    : c.name !== "Income",
+                )
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </select>
+          )}
+        </div>
+      )}
+
       <div className="mt-6 flex justify-end gap-2.5">
         <button type="button" className="btn btn-ghost" onClick={onClose}>
           Cancel
@@ -172,10 +276,14 @@ export function AddTransactionModal({
         <button
           type="button"
           className="btn btn-primary"
-          disabled={pending}
+          disabled={
+            pending || (type === "savings" && goals.length === 0) ||
+            (type !== "savings" && categories.length === 0 &&
+              /* still allow if user wants uncategorized */ false)
+          }
           onClick={() => void submit()}
         >
-          {pending ? "Saving…" : "Add transaction"}
+          {pending ? "Saving…" : primaryLabel}
         </button>
       </div>
     </Modal>

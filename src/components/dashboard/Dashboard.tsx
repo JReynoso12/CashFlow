@@ -20,6 +20,7 @@ type GoalRow = {
   name: string;
   target_cents: number;
   current_cents: number;
+  cadence: "one_time" | "monthly" | "yearly";
 };
 
 type TxRow = {
@@ -28,6 +29,7 @@ type TxRow = {
   description: string;
   occurred_at: string;
   category_id: string | null;
+  goal_id: string | null;
 };
 
 function iso(d: Date) {
@@ -56,7 +58,7 @@ export function Dashboard() {
   const [goals, setGoals] = useState<GoalRow[]>([]);
   const [transactions, setTransactions] = useState<TxRow[]>([]);
   const [rangeTx, setRangeTx] = useState<
-    { amount_cents: number; occurred_at: string }[]
+    { amount_cents: number; occurred_at: string; goal_id: string | null }[]
   >([]);
   const [prevMonthTotals, setPrevMonthTotals] = useState({
     income: 0,
@@ -87,18 +89,18 @@ export function Dashboard() {
       supabase.from("savings_goals").select("*").order("created_at"),
       supabase
         .from("transactions")
-        .select("id, amount_cents, description, occurred_at, category_id")
+        .select("id, amount_cents, description, occurred_at, category_id, goal_id")
         .gte("occurred_at", iso(mStart))
         .lte("occurred_at", iso(mEnd))
         .order("occurred_at", { ascending: false }),
       supabase
         .from("transactions")
-        .select("amount_cents, occurred_at")
+        .select("amount_cents, occurred_at, goal_id")
         .gte("occurred_at", iso(sixStart))
         .lte("occurred_at", iso(mEnd)),
       supabase
         .from("transactions")
-        .select("amount_cents")
+        .select("amount_cents, goal_id")
         .gte("occurred_at", iso(prevStart))
         .lte("occurred_at", iso(prevEnd)),
     ]);
@@ -108,13 +110,21 @@ export function Dashboard() {
     if (txRes.data) setTransactions(txRes.data as TxRow[]);
     if (rangeRes.data)
       setRangeTx(
-        rangeRes.data as { amount_cents: number; occurred_at: string }[],
+        rangeRes.data as {
+          amount_cents: number;
+          occurred_at: string;
+          goal_id: string | null;
+        }[],
       );
 
     let pIncome = 0;
     let pSpent = 0;
     if (prevRes.data) {
-      for (const t of prevRes.data as { amount_cents: number }[]) {
+      for (const t of prevRes.data as {
+        amount_cents: number;
+        goal_id: string | null;
+      }[]) {
+        if (t.goal_id) continue;
         if (t.amount_cents > 0) pIncome += t.amount_cents;
         else pSpent += Math.abs(t.amount_cents);
       }
@@ -131,17 +141,23 @@ export function Dashboard() {
   const metrics = useMemo(() => {
     let income = 0;
     let spent = 0;
+    let savings = 0;
     for (const t of transactions) {
+      if (t.goal_id) {
+        savings += Math.abs(t.amount_cents);
+        continue;
+      }
       if (t.amount_cents > 0) income += t.amount_cents;
       else spent += Math.abs(t.amount_cents);
     }
-    const balance = income - spent;
+    const balance = income - spent - savings;
     const totalSaved = goals.reduce((s, g) => s + g.current_cents, 0);
     const incomePct = pctChange(income, prevMonthTotals.income);
     const spentPct = pctChange(spent, prevMonthTotals.spent);
     return {
       income,
       spent,
+      savings,
       balance,
       totalSaved,
       incomePct,
@@ -164,6 +180,7 @@ export function Dashboard() {
     const map = new Map<string, number>();
     for (const t of transactions) {
       if (t.amount_cents >= 0) continue;
+      if (t.goal_id) continue;
       if (!t.category_id) continue;
       const cur = map.get(t.category_id) ?? 0;
       map.set(t.category_id, cur + Math.abs(t.amount_cents));
@@ -186,6 +203,7 @@ export function Dashboard() {
         const me = iso(endOfMonth(y, m));
         for (const t of rangeTx) {
           if (t.occurred_at < ms || t.occurred_at > me) continue;
+          if (t.goal_id) continue;
           if (t.amount_cents < 0) s += Math.abs(t.amount_cents);
         }
         return s / 100;
@@ -391,8 +409,22 @@ export function Dashboard() {
           ) : (
             transactions.map((t) => {
               const income = t.amount_cents > 0;
+              const isSavings = !!t.goal_id;
               const cat = t.category_id ? catById.get(t.category_id) : undefined;
-              const icon = cat?.icon ?? "💳";
+              const goal = t.goal_id
+                ? goals.find((g) => g.id === t.goal_id)
+                : undefined;
+              const icon = isSavings ? "🏦" : (cat?.icon ?? "💳");
+              const iconBg = isSavings
+                ? "rgba(91,156,246,0.14)"
+                : income
+                  ? "rgba(62,217,160,0.12)"
+                  : "rgba(255,255,255,0.05)";
+              const amountColor = isSavings
+                ? "text-[color:var(--blue)]"
+                : income
+                  ? "text-[color:var(--accent)]"
+                  : "text-[color:var(--text)]";
               return (
                 <div
                   key={t.id}
@@ -400,26 +432,25 @@ export function Dashboard() {
                 >
                   <div
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-base"
-                    style={{
-                      background: income
-                        ? "rgba(62,217,160,0.12)"
-                        : "rgba(255,255,255,0.05)",
-                    }}
+                    style={{ background: iconBg }}
                   >
                     {icon}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13.5px] font-medium">{t.description}</div>
+                    <div className="text-[13.5px] font-medium">
+                      {t.description}
+                    </div>
                     <div className="text-[11.5px] text-[color:var(--muted)]">
-                      {cat?.name ?? "Uncategorized"} · {shortDate(t.occurred_at)}
+                      {isSavings
+                        ? `Savings · ${goal?.name ?? "Goal"}`
+                        : (cat?.name ?? "Uncategorized")}{" "}
+                      · {shortDate(t.occurred_at)}
                     </div>
                   </div>
                   <div
-                    className={`text-right text-sm font-medium ${
-                      income ? "text-[color:var(--accent)]" : "text-[color:var(--text)]"
-                    }`}
+                    className={`text-right text-sm font-medium ${amountColor}`}
                   >
-                    {income ? "+" : ""}
+                    {income ? "+" : isSavings ? "→" : ""}
                     {formatPhp(Math.abs(t.amount_cents))}
                   </div>
                 </div>
@@ -443,6 +474,11 @@ export function Dashboard() {
         open={modal}
         onClose={() => setModal(false)}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        goals={goals.map((g) => ({
+          id: g.id,
+          name: g.name,
+          cadence: g.cadence,
+        }))}
         onSaved={() => void load()}
       />
     </>

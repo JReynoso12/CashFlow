@@ -81,34 +81,54 @@ export function SettingsClient({ email, displayName, createdAt }: Props) {
     setExporting(true);
     try {
       const supabase = createClient();
-      const [tx, cats] = await Promise.all([
+      const [tx, cats, goals] = await Promise.all([
         supabase
           .from("transactions")
-          .select("amount_cents, description, occurred_at, category_id, created_at")
+          .select(
+            "amount_cents, description, occurred_at, category_id, goal_id, created_at",
+          )
           .order("occurred_at", { ascending: false }),
         supabase.from("categories").select("id, name"),
+        supabase.from("savings_goals").select("id, name"),
       ]);
       if (tx.error) throw tx.error;
       if (cats.error) throw cats.error;
+      if (goals.error) throw goals.error;
 
       const catMap = new Map(
         (cats.data ?? []).map((c) => [c.id as string, c.name as string]),
+      );
+      const goalMap = new Map(
+        (goals.data ?? []).map((g) => [g.id as string, g.name as string]),
       );
       const rows = (tx.data ?? []) as {
         amount_cents: number;
         description: string;
         occurred_at: string;
         category_id: string | null;
+        goal_id: string | null;
         created_at: string;
       }[];
 
-      const header = ["Date", "Description", "Category", "Type", "Amount (PHP)"];
+      const header = [
+        "Date",
+        "Description",
+        "Type",
+        "Category",
+        "Goal",
+        "Amount (PHP)",
+      ];
       const lines = [header.join(",")];
       for (const r of rows) {
-        const type = r.amount_cents > 0 ? "Income" : "Expense";
+        const type = r.goal_id
+          ? "Savings"
+          : r.amount_cents > 0
+            ? "Income"
+            : "Expense";
         const amount = (Math.abs(r.amount_cents) / 100).toFixed(2);
         const cat = r.category_id ? catMap.get(r.category_id) ?? "" : "";
-        const cells = [r.occurred_at, r.description, cat, type, amount].map(
+        const goal = r.goal_id ? goalMap.get(r.goal_id) ?? "" : "";
+        const cells = [r.occurred_at, r.description, type, cat, goal, amount].map(
           csvCell,
         );
         lines.push(cells.join(","));
