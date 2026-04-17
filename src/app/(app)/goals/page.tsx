@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatPhp, parsePhpToCents } from "@/lib/money";
 import { createGoal, deleteGoal, updateGoal } from "@/app/actions/goals";
+import { Modal } from "@/components/ui/Modal";
 
 type GoalRow = {
   id: string;
@@ -187,18 +188,15 @@ export default function GoalsPage() {
         </div>
       )}
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 p-4 sm:p-6"
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-          }}
-        >
-          <div className="modal-pop w-full max-w-[400px] rounded-[14px] border border-[color:var(--border2)] bg-[color:var(--surface)] p-6 sm:p-8">
-            <h2 className="font-serif text-xl">
-              {form.id ? "Edit goal" : "New goal"}
-            </h2>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        labelledBy="goal-modal-title"
+        panelClassName="max-w-[400px]"
+      >
+        <h2 id="goal-modal-title" className="font-serif text-xl">
+          {form.id ? "Edit goal" : "New goal"}
+        </h2>
             {err && (
               <p className="mt-2 text-sm text-[color:var(--red)]">{err}</p>
             )}
@@ -240,26 +238,24 @@ export default function GoalsPage() {
                 />
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2.5">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={pending}
-                onClick={() => void submit()}
-              >
-                {pending ? "Saving…" : form.id ? "Save" : "Create"}
-              </button>
-            </div>
-          </div>
+        <div className="mt-6 flex justify-end gap-2.5">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setOpen(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={pending}
+            onClick={() => void submit()}
+          >
+            {pending ? "Saving…" : form.id ? "Save" : "Create"}
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
