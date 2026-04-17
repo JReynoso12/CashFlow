@@ -1,13 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   changePassword,
   resetAllData,
   updateDisplayName,
 } from "@/app/actions/settings";
+import {
+  deletePushSubscription,
+  savePushSubscription,
+  sendTestPush,
+} from "@/app/actions/push";
+import {
+  getExistingSubscription,
+  isPushSupported,
+  notificationPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/lib/push";
 
 type Props = {
   email: string;
@@ -32,6 +44,21 @@ export function SettingsClient({ email, displayName, createdAt }: Props) {
   const [exporting, setExporting] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [dataNotice, setDataNotice] = useState<Notice>(null);
+
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushPermission, setPushPermission] =
+    useState<NotificationPermission | "unsupported">("default");
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushNotice, setPushNotice] = useState<Notice>(null);
+
+  useEffect(() => {
+    setPushSupported(isPushSupported());
+    setPushPermission(notificationPermission());
+    getExistingSubscription()
+      .then((sub) => setPushSubscribed(!!sub))
+      .catch(() => setPushSubscribed(false));
+  }, []);
 
   async function saveName() {
     setNameNotice(null);
@@ -182,6 +209,70 @@ export function SettingsClient({ email, displayName, createdAt }: Props) {
     }
   }
 
+  async function enablePush() {
+    setPushNotice(null);
+    const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!key) {
+      setPushNotice({
+        kind: "err",
+        text: "Push notifications aren't configured (missing VAPID public key).",
+      });
+      return;
+    }
+    setPushBusy(true);
+    try {
+      const payload = await subscribeToPush(key);
+      await savePushSubscription(payload);
+      setPushSubscribed(true);
+      setPushPermission(notificationPermission());
+      setPushNotice({
+        kind: "ok",
+        text: "Notifications enabled on this device.",
+      });
+    } catch (e) {
+      setPushNotice({
+        kind: "err",
+        text: e instanceof Error ? e.message : "Could not enable notifications",
+      });
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  async function disablePush() {
+    setPushNotice(null);
+    setPushBusy(true);
+    try {
+      const endpoint = await unsubscribeFromPush();
+      if (endpoint) await deletePushSubscription(endpoint);
+      setPushSubscribed(false);
+      setPushNotice({ kind: "ok", text: "Notifications disabled." });
+    } catch (e) {
+      setPushNotice({
+        kind: "err",
+        text: e instanceof Error ? e.message : "Could not disable notifications",
+      });
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  async function testPush() {
+    setPushNotice(null);
+    setPushBusy(true);
+    try {
+      await sendTestPush();
+      setPushNotice({ kind: "ok", text: "Test notification sent." });
+    } catch (e) {
+      setPushNotice({
+        kind: "err",
+        text: e instanceof Error ? e.message : "Could not send test",
+      });
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -282,6 +373,80 @@ export function SettingsClient({ email, displayName, createdAt }: Props) {
                 {pwSaving ? "Updating…" : "Update password"}
               </button>
             </div>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-title">Notifications</div>
+          <div className="flex flex-col gap-4">
+            <div>
+              <div className="text-[13.5px] font-medium">
+                Savings reminders
+              </div>
+              <div className="text-[12px] text-[color:var(--muted)]">
+                Get a push notification near month-end if you haven&apos;t
+                logged contributions to your monthly goals. You&apos;ll also
+                receive an email.
+              </div>
+            </div>
+            {!pushSupported ? (
+              <p className="text-[12px] text-[color:var(--muted)]">
+                Your browser doesn&apos;t support push notifications. On iOS,
+                install the app to your home screen first (iOS 16.4+).
+              </p>
+            ) : pushPermission === "denied" ? (
+              <p className="text-[12px] text-[color:var(--red)]">
+                Notifications are blocked for this site in your browser. Enable
+                them in your browser&apos;s site settings and try again.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-[12.5px]">
+                  Status:{" "}
+                  <span
+                    className={
+                      pushSubscribed
+                        ? "font-medium text-[color:var(--accent)]"
+                        : "text-[color:var(--muted2)]"
+                    }
+                  >
+                    {pushSubscribed ? "Enabled on this device" : "Disabled"}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  {pushSubscribed ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-ghost shrink-0"
+                        disabled={pushBusy}
+                        onClick={() => void testPush()}
+                      >
+                        Send test
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost shrink-0"
+                        disabled={pushBusy}
+                        onClick={() => void disablePush()}
+                      >
+                        {pushBusy ? "…" : "Disable"}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary shrink-0"
+                      disabled={pushBusy}
+                      onClick={() => void enablePush()}
+                    >
+                      {pushBusy ? "…" : "Enable notifications"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            {pushNotice && <Banner notice={pushNotice} />}
           </div>
         </section>
 

@@ -6,6 +6,7 @@ import { formatPhp } from "@/lib/money";
 import { monthLabel, shortDate } from "@/lib/dates";
 import { SpendCharts } from "./SpendCharts";
 import { AddTransactionModal } from "./AddTransactionModal";
+import { SavingsReminder } from "./SavingsReminder";
 
 type CategoryRow = {
   id: string;
@@ -21,6 +22,7 @@ type GoalRow = {
   target_cents: number;
   current_cents: number;
   cadence: "one_time" | "monthly" | "yearly";
+  contribution_cents: number;
 };
 
 type TxRow = {
@@ -272,6 +274,21 @@ export function Dashboard() {
           </button>
         </div>
       </div>
+
+      <SavingsReminder
+        goals={goals.map((g) => ({
+          id: g.id,
+          name: g.name,
+          cadence: g.cadence,
+          contribution_cents: g.contribution_cents,
+        }))}
+        transactions={transactions.map((t) => ({
+          goal_id: t.goal_id,
+          occurred_at: t.occurred_at,
+        }))}
+        year={year}
+        month0={month0}
+      />
 
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="metric-card income">
