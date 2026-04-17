@@ -50,14 +50,6 @@ export async function sendTestPush() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
-  if (sessionError) throw sessionError;
-  if (!session?.access_token) {
-    throw new Error("Session expired. Please sign in again.");
-  }
 
   const { data: subs, error } = await supabase
     .from("push_subscriptions")
@@ -68,26 +60,17 @@ export async function sendTestPush() {
     throw new Error("No push subscription on this device yet.");
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const res = await fetch(`${url}/functions/v1/send-push`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      apikey: anon,
-      Authorization: `Bearer ${session.access_token}`,
+  const { data, error: invokeError } = await supabase.functions.invoke(
+    "send-push",
+    {
+      body: {
+        userId: user.id,
+        title: "CashFlow test",
+        body: "Notifications are working. You'll get reminders near month-end.",
+        url: "/",
+      },
     },
-    body: JSON.stringify({
-      userId: user.id,
-      title: "CashFlow test",
-      body: "Notifications are working. You'll get reminders near month-end.",
-      url: "/",
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Push failed: ${text}`);
-  }
-  const data = await res.json();
+  );
+  if (invokeError) throw new Error(`Push failed: ${invokeError.message}`);
   return data;
 }
