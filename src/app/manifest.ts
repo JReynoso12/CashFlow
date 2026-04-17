@@ -2,19 +2,31 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Cashflow — Personal Finance",
-    short_name: "Cashflow",
+    name: "CashFlow — Personal Finance",
+    short_name: "CashFlow",
     description: "Track, manage, and grow your finances",
     start_url: "/",
     display: "standalone",
-    background_color: "#0c0f0e",
+    background_color: "#ffffff",
     theme_color: "#0c0f0e",
     orientation: "portrait-primary",
     icons: [
       {
-        src: "/icon.svg",
+        src: "/logo.png",
         sizes: "any",
-        type: "image/svg+xml",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/logo.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/logo.png",
+        sizes: "512x512",
+        type: "image/png",
         purpose: "any",
       },
     ],

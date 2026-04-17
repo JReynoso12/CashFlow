@@ -15,12 +15,21 @@ const dmSerif = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Cashflow — Personal Finance",
+  title: "CashFlow — Personal Finance",
   description: "Track, manage, and grow your finances",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Cashflow",
+    title: "CashFlow",
+    startupImage: ["/logo.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+    ],
+    apple: [
+      { url: "/logo.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -143,17 +144,36 @@ export function AppSidebar({
       <div className="flex items-center justify-between">
         {collapsed ? (
           <div
-            className="mx-auto font-serif text-[22px] leading-none text-[color:var(--accent)]"
-            title="Cashflow"
+            className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-white p-1 shadow-sm"
+            title="CashFlow"
           >
-            ₱
+            <Image
+              src="/logo.png"
+              alt="CashFlow"
+              width={40}
+              height={40}
+              className="h-full w-full object-contain"
+              priority
+            />
           </div>
         ) : (
-          <div className="font-serif text-[22px] tracking-tight text-[color:var(--accent)]">
-            Cashflow
-            <span className="mt-0.5 block font-sans text-xs font-light text-[color:var(--muted2)]">
-              Personal Finance
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-white p-1 shadow-sm">
+              <Image
+                src="/logo.png"
+                alt="CashFlow"
+                width={44}
+                height={44}
+                className="h-full w-full object-contain"
+                priority
+              />
+            </div>
+            <div className="font-serif text-[20px] leading-tight tracking-tight text-[color:var(--accent)]">
+              CashFlow
+              <span className="mt-0.5 block font-sans text-[11px] font-light text-[color:var(--muted2)]">
+                Personal Finance
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -286,11 +306,19 @@ export function MobileTopBar({
   return (
     <>
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[color:var(--border)] bg-[color:var(--surface)]/90 px-4 py-3 backdrop-blur md:hidden">
-        <Link
-          href="/"
-          className="font-serif text-[18px] text-[color:var(--accent)]"
-        >
-          Cashflow
+        <Link href="/" className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white p-0.5 shadow-sm">
+            <Image
+              src="/logo.png"
+              alt="CashFlow"
+              width={32}
+              height={32}
+              className="h-full w-full object-contain"
+            />
+          </span>
+          <span className="font-serif text-[17px] text-[color:var(--accent)]">
+            CashFlow
+          </span>
         </Link>
         <button
           type="button"
@@ -327,8 +355,19 @@ export function MobileTopBar({
             className="absolute right-0 top-0 flex h-full w-[260px] flex-col gap-6 overflow-y-auto border-l border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-6"
           >
             <div className="flex items-center justify-between">
-              <div className="font-serif text-[20px] text-[color:var(--accent)]">
-                Cashflow
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white p-1 shadow-sm">
+                  <Image
+                    src="/logo.png"
+                    alt="CashFlow"
+                    width={36}
+                    height={36}
+                    className="h-full w-full object-contain"
+                  />
+                </span>
+                <div className="font-serif text-[19px] text-[color:var(--accent)]">
+                  CashFlow
+                </div>
               </div>
               <button
                 type="button"
