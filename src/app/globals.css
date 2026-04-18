@@ -301,6 +301,24 @@ body {
   border-color: var(--accent);
 }
 
+.form-input[type="date"],
+.form-input[type="time"],
+.form-input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 0;
+  line-height: 1.25;
+  text-align: left;
+  background-clip: padding-box;
+}
+
+.form-input[type="date"]::-webkit-date-and-time-value,
+.form-input[type="time"]::-webkit-date-and-time-value,
+.form-input[type="datetime-local"]::-webkit-date-and-time-value {
+  min-height: 1.25em;
+  text-align: left;
+}
+
 .btn {
   padding: 10px 22px;
   border-radius: var(--radius-sm);

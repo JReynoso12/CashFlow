@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatPhp } from "@/lib/money";
 import { monthLabel, shortDate } from "@/lib/dates";
-import { SpendCharts } from "./SpendCharts";
-import { AddTransactionModal } from "./AddTransactionModal";
 import { SavingsReminder } from "./SavingsReminder";
 
-type CategoryRow = {
+export type CategoryRow = {
   id: string;
   name: string;
   color: string;
@@ -16,7 +15,7 @@ type CategoryRow = {
   monthly_budget_cents: number;
 };
 
-type GoalRow = {
+export type GoalRow = {
   id: string;
   name: string;
   target_cents: number;
@@ -25,7 +24,7 @@ type GoalRow = {
   contribution_cents: number;
 };
 
-type TxRow = {
+export type RangeTx = {
   id: string;
   amount_cents: number;
   description: string;
@@ -34,16 +33,47 @@ type TxRow = {
   goal_id: string | null;
 };
 
+const SpendCharts = dynamic(
+  () =>
+    import("./SpendCharts").then((m) => ({ default: m.SpendCharts })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mb-7 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="card">
+          <div className="card-title">
+            Monthly spending trend
+            <span className="badge">Last 6 months</span>
+          </div>
+          <div className="h-[200px]" />
+        </div>
+        <div className="card">
+          <div className="card-title">Spending split</div>
+          <div className="h-[200px]" />
+        </div>
+      </div>
+    ),
+  },
+);
+
+const AddTransactionModal = dynamic(
+  () =>
+    import("./AddTransactionModal").then((m) => ({
+      default: m.AddTransactionModal,
+    })),
+  { ssr: false },
+);
+
 function iso(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-function endOfMonth(year: number, month0: number) {
-  return new Date(year, month0 + 1, 0);
-}
-
 function startOfMonth(year: number, month0: number) {
   return new Date(year, month0, 1);
+}
+
+function endOfMonth(year: number, month0: number) {
+  return new Date(year, month0 + 1, 0);
 }
 
 function pctChange(cur: number, prev: number) {
@@ -51,94 +81,91 @@ function pctChange(cur: number, prev: number) {
   return ((cur - prev) / Math.abs(prev)) * 100;
 }
 
-export function Dashboard() {
-  const [year, setYear] = useState(() => new Date().getFullYear());
-  const [month0, setMonth0] = useState(() => new Date().getMonth());
+type Props = {
+  initialYear: number;
+  initialMonth0: number;
+  initialCategories: CategoryRow[];
+  initialGoals: GoalRow[];
+  initialRangeTx: RangeTx[];
+};
+
+export function DashboardClient({
+  initialYear,
+  initialMonth0,
+  initialCategories,
+  initialGoals,
+  initialRangeTx,
+}: Props) {
+  const [year, setYear] = useState(initialYear);
+  const [month0, setMonth0] = useState(initialMonth0);
   const [modal, setModal] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
-  const [goals, setGoals] = useState<GoalRow[]>([]);
-  const [transactions, setTransactions] = useState<TxRow[]>([]);
-  const [rangeTx, setRangeTx] = useState<
-    { amount_cents: number; occurred_at: string; goal_id: string | null }[]
-  >([]);
-  const [prevMonthTotals, setPrevMonthTotals] = useState({
-    income: 0,
-    spent: 0,
-  });
+  const [categories, setCategories] = useState<CategoryRow[]>(initialCategories);
+  const [goals, setGoals] = useState<GoalRow[]>(initialGoals);
+  const [rangeTx, setRangeTx] = useState<RangeTx[]>(initialRangeTx);
 
-  const label = monthLabel(year, month0);
+  const isInitialRender = useRef(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (y: number, m: number) => {
     const supabase = createClient();
-    setLoading(true);
+    const sixStart = iso(startOfMonth(y, m - 5));
+    const mEnd = iso(endOfMonth(y, m));
 
-    const mStart = startOfMonth(year, month0);
-    const mEnd = endOfMonth(year, month0);
-    const sixStart = startOfMonth(year, month0 - 5);
-
-    const prevStart = startOfMonth(year, month0 - 1);
-    const prevEnd = endOfMonth(year, month0 - 1);
-
-    const [
-      catRes,
-      goalRes,
-      txRes,
-      rangeRes,
-      prevRes,
-    ] = await Promise.all([
+    const [catRes, goalRes, rangeRes] = await Promise.all([
       supabase.from("categories").select("*").order("sort_order"),
       supabase.from("savings_goals").select("*").order("created_at"),
       supabase
         .from("transactions")
-        .select("id, amount_cents, description, occurred_at, category_id, goal_id")
-        .gte("occurred_at", iso(mStart))
-        .lte("occurred_at", iso(mEnd))
+        .select(
+          "id, amount_cents, description, occurred_at, category_id, goal_id",
+        )
+        .gte("occurred_at", sixStart)
+        .lte("occurred_at", mEnd)
         .order("occurred_at", { ascending: false }),
-      supabase
-        .from("transactions")
-        .select("amount_cents, occurred_at, goal_id")
-        .gte("occurred_at", iso(sixStart))
-        .lte("occurred_at", iso(mEnd)),
-      supabase
-        .from("transactions")
-        .select("amount_cents, goal_id")
-        .gte("occurred_at", iso(prevStart))
-        .lte("occurred_at", iso(prevEnd)),
     ]);
 
     if (catRes.data) setCategories(catRes.data as CategoryRow[]);
     if (goalRes.data) setGoals(goalRes.data as GoalRow[]);
-    if (txRes.data) setTransactions(txRes.data as TxRow[]);
-    if (rangeRes.data)
-      setRangeTx(
-        rangeRes.data as {
-          amount_cents: number;
-          occurred_at: string;
-          goal_id: string | null;
-        }[],
-      );
-
-    let pIncome = 0;
-    let pSpent = 0;
-    if (prevRes.data) {
-      for (const t of prevRes.data as {
-        amount_cents: number;
-        goal_id: string | null;
-      }[]) {
-        if (t.goal_id) continue;
-        if (t.amount_cents > 0) pIncome += t.amount_cents;
-        else pSpent += Math.abs(t.amount_cents);
-      }
-    }
-    setPrevMonthTotals({ income: pIncome, spent: pSpent });
-
-    setLoading(false);
-  }, [year, month0]);
+    if (rangeRes.data) setRangeTx(rangeRes.data as RangeTx[]);
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (isInitialRender.current) {
+      isInitialRender.current = false;
+      return;
+    }
+    void load(year, month0);
+  }, [year, month0, load]);
+
+  const label = monthLabel(year, month0);
+
+  const mStart = useMemo(() => iso(startOfMonth(year, month0)), [year, month0]);
+  const mEnd = useMemo(() => iso(endOfMonth(year, month0)), [year, month0]);
+  const pStart = useMemo(
+    () => iso(startOfMonth(year, month0 - 1)),
+    [year, month0],
+  );
+  const pEnd = useMemo(
+    () => iso(endOfMonth(year, month0 - 1)),
+    [year, month0],
+  );
+
+  const transactions = useMemo(
+    () =>
+      rangeTx.filter((t) => t.occurred_at >= mStart && t.occurred_at <= mEnd),
+    [rangeTx, mStart, mEnd],
+  );
+
+  const prevMonthTotals = useMemo(() => {
+    let income = 0;
+    let spent = 0;
+    for (const t of rangeTx) {
+      if (t.occurred_at < pStart || t.occurred_at > pEnd) continue;
+      if (t.goal_id) continue;
+      if (t.amount_cents > 0) income += t.amount_cents;
+      else spent += Math.abs(t.amount_cents);
+    }
+    return { income, spent };
+  }, [rangeTx, pStart, pEnd]);
 
   const metrics = useMemo(() => {
     let income = 0;
@@ -237,20 +264,13 @@ export function Dashboard() {
     setMonth0(d.getMonth());
   }
 
-  if (loading && categories.length === 0) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-[color:var(--muted)]">
-        Loading…
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="mb-9 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <h1 className="page-title">
-            Budget Overview <span className="text-[color:var(--accent)]">— {label}</span>
+            Budget Overview{" "}
+            <span className="text-[color:var(--accent)]">— {label}</span>
           </h1>
           <p className="page-sub mt-1">Track, manage, and grow your finances</p>
         </div>
@@ -414,9 +434,7 @@ export function Dashboard() {
       <div className="card">
         <div className="card-title">
           Recent transactions
-          <span className="badge">
-            {transactions.length} this month
-          </span>
+          <span className="badge">{transactions.length} this month</span>
         </div>
         <div className="flex flex-col">
           {transactions.length === 0 ? (
@@ -487,17 +505,19 @@ export function Dashboard() {
         +
       </button>
 
-      <AddTransactionModal
-        open={modal}
-        onClose={() => setModal(false)}
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-        goals={goals.map((g) => ({
-          id: g.id,
-          name: g.name,
-          cadence: g.cadence,
-        }))}
-        onSaved={() => void load()}
-      />
+      {modal && (
+        <AddTransactionModal
+          open={modal}
+          onClose={() => setModal(false)}
+          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          goals={goals.map((g) => ({
+            id: g.id,
+            name: g.name,
+            cadence: g.cadence,
+          }))}
+          onSaved={() => void load(year, month0)}
+        />
+      )}
     </>
   );
 }
