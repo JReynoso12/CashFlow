@@ -7,6 +7,20 @@ import {
 } from "@/app/actions/transactions";
 import { Modal } from "@/components/ui/Modal";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { isValidIsoDateOnly } from "@/lib/dates";
+
+function messageFromActionError(e: unknown): string {
+  if (e instanceof Error && e.message) return e.message;
+  if (
+    typeof e === "object" &&
+    e !== null &&
+    "message" in e &&
+    typeof (e as { message: unknown }).message === "string"
+  ) {
+    return (e as { message: string }).message;
+  }
+  return "Could not save";
+}
 
 type Cat = { id: string; name: string };
 type Goal = {
@@ -59,20 +73,25 @@ export function AddTransactionModal({
   }, [open]);
 
   useEffect(() => {
-    if (type === "savings") return;
-    if (categories.length && !catId) {
-      const first = categories.find((c) =>
-        type === "income" ? c.name === "Income" : c.name !== "Income",
-      );
-      setCatId(first?.id ?? categories[0].id);
+    if (!open || type === "savings") return;
+    const pool = categories.filter((c) =>
+      type === "income" ? c.name === "Income" : c.name !== "Income",
+    );
+    if (pool.length === 0) {
+      setCatId("");
+      return;
     }
-  }, [categories, catId, type, open]);
+    setCatId((prev) => (pool.some((c) => c.id === prev) ? prev : pool[0].id));
+  }, [open, type, categories]);
 
   useEffect(() => {
-    if (type === "savings" && goals.length && !goalId) {
-      setGoalId(goals[0].id);
+    if (!open || type !== "savings") return;
+    if (goals.length === 0) {
+      setGoalId("");
+      return;
     }
-  }, [type, goals, goalId]);
+    setGoalId((prev) => (goals.some((g) => g.id === prev) ? prev : goals[0].id));
+  }, [open, type, goals]);
 
   async function submit() {
     setErr(null);
@@ -84,6 +103,10 @@ export function AddTransactionModal({
     }
     if (type === "savings" && !goalId) {
       setErr("Pick a savings goal.");
+      return;
+    }
+    if (!isValidIsoDateOnly(date)) {
+      setErr("Pick a valid date.");
       return;
     }
     const cents = Math.round(n * 100);
@@ -102,7 +125,7 @@ export function AddTransactionModal({
       onSaved();
       onClose();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not save");
+      setErr(messageFromActionError(e));
     } finally {
       setPending(false);
     }

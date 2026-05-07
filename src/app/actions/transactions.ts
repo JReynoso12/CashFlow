@@ -1,5 +1,6 @@
 "use server";
 
+import { isValidIsoDateOnly } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -26,6 +27,11 @@ export async function addTransaction(input: {
     throw new Error("Pick a savings goal for this transaction.");
   }
 
+  if (!isValidIsoDateOnly(input.occurredAt.trim())) {
+    throw new Error("Pick a valid transaction date.");
+  }
+  const occurredAt = input.occurredAt.trim();
+
   // Savings leave the spendable balance (like expenses), so the sign is
   // negative; income stays positive; expense is negative.
   const signed = input.type === "income" ? amount : -amount;
@@ -36,7 +42,7 @@ export async function addTransaction(input: {
     goal_id: input.type === "savings" ? input.goalId : null,
     amount_cents: signed,
     description: input.description.trim(),
-    occurred_at: input.occurredAt,
+    occurred_at: occurredAt,
   });
   if (error) throw error;
 
